@@ -10,15 +10,83 @@ knitr::opts_chunk$set(echo = TRUE)
 library(readr)        # to import tabular data (e.g. csv)
 library(dplyr)        # to manipulate (tabular) data
 library(ggplot2)      # to visualize data
-library(sf)           # to handle spatial vector data
-library(terra)        # To handle raster data
+# library(sf)           # to handle spatial vector data
+# library(terra)        # To handle raster data
 library(lubridate)    # To handle dates and times
 ```
 
 
 ```{r Data Import}
 caro <- read_delim("caro60.csv",",")
-
-caro <- st_as_sf(caro, coords = c("E", "N"), crs = 2056, remove = FALSE)
-nrow(caro)
 ```
+# Task 1
+
+
+The window v has a size of only 6 minutes.
+
+#### Adding Euclidian Distance
+```{r Adding Euclidian Distance}
+caro <- caro %>%
+  mutate(
+    nMinus3 = sqrt((lag(E,2)-E)^2+(lag(N,2)-N)^2),   # distance to pos -3 minutes
+    nMinus2 = sqrt((lag(E,2)-E)^2+(lag(N,2)-N)^2),   # distance to pos -2 minutes
+    nMinus1 = sqrt((lag(E,1)-E)^2+(lag(N,1)-N)^2),   # distance to pos -1 minutes
+    nPlus1  = sqrt((E-lead(E,1))^2+(N-lead(N,1))^2), # distance to pos +1 mintues
+    nPlus2  = sqrt((E-lead(E,2))^2+(N-lead(N,2))^2),  # distance to pos +2 minutes
+    nPlus3  = sqrt((E-lead(E,2))^2+(N-lead(N,2))^2)  # distance to pos +3 minutes
+  )
+```
+
+
+
+#### Adding mean value per Row
+```{r Adding mean value per Row}
+caro <- caro %>%
+  rowwise() %>%
+  mutate(
+    stepMean = mean(c(nMinus2, nMinus1,nPlus1,nPlus2))
+  ) %>%
+  ungroup() 
+```
+
+# Task 2
+
+```{r}
+ggplot(caro, aes(x= stepMean)) +
+  theme_set(theme_minimal()) +
+  geom_histogram()
+```
+
+
+
+```{r}
+summary(caro)
+```
+
+#### Marking & filtering static values
+This is done by calling movements bellow the median of all stepMean (3.6976) static.
+I am not quite sure if this is the best way to do this. There might be a better way... (might come back here later)
+```{r Marking static values}
+caro <- caro %>%
+  ungroup() %>%
+  mutate(static = stepMean < 3.6976)
+
+
+caro_filter <- caro %>%
+  filter(!static)
+```
+
+# Task 3
+
+```{r Plot}
+caro%>%
+  ggplot(aes(x= E, y= N))  +
+  geom_path() +
+  geom_point(aes( color = "static" )) +
+  coord_equal(ratio=1) + # does not result in nice axis and grid steps
+  labs(color = "Segments")+
+  theme_set(theme_minimal()) +
+  theme(legend.position = "bottom")
+```
+
+

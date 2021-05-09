@@ -82,11 +82,14 @@ caro_filter <- caro %>%
 caro%>%
   ggplot(aes(x= E, y= N))  +
   geom_path() +
-  geom_point(aes( color = "static" )) +
-  coord_equal(ratio=1) + # does not result in nice axis and grid steps
-  labs(color = "Segments")+
+  geom_point(aes(colour=static)) + 
+  coord_equal(1) + 
+  labs(color = "Segments") + 
   theme_set(theme_minimal()) +
   theme(legend.position = "bottom")
 ```
+
+# Task 4
+
 
 

@@ -10,8 +10,6 @@ knitr::opts_chunk$set(echo = TRUE)
 library(readr)        # to import tabular data (e.g. csv)
 library(dplyr)        # to manipulate (tabular) data
 library(ggplot2)      # to visualize data
-# library(sf)           # to handle spatial vector data
-# library(terra)        # To handle raster data
 library(lubridate)    # To handle dates and times
 ```
 
@@ -90,6 +88,166 @@ caro%>%
 ```
 
 # Task 4
+#### Defining Function
+```{r Defining Function}
+rle_id <- function(vec){
+  x <- rle(vec)$lengths
+  as.factor(rep(seq_along(x), times=x))
+  }
+```
+
+#### Applying Function on Caro Data
+```{r Applying Function on Caro Data}
+caro <- caro %>%
+  mutate(segment_id = rle_id(static))
+```
+
+#### Plot of the all the segments 
+```{r}
+caro%>%
+  ggplot(aes(x= E, y= N))  +
+  geom_path(aes(colour=segment_id)) +
+  geom_point(aes(colour=segment_id)) + 
+  coord_equal(1) + 
+  theme_set(theme_minimal()) +
+  theme(legend.position = "none")     
+```
+
+#### Removing all Segments shorter than 5
+```{r}
+caro5plus <- caro %>%
+  group_by(segment_id)  %>%
+  mutate(n = length(TierID)) %>%
+  filter(n >= 5)
+```
+
+#### Plot of the segments which presist for more than 5 intervalls
+```{r}
+caro5plus%>%
+  ggplot(aes(x= E, y= N))  +
+  geom_path(aes(colour=segment_id)) +
+  geom_point(aes(colour=segment_id)) + 
+  coord_equal(1) + 
+  theme_set(theme_minimal()) +
+  theme(legend.position = "none")     
+```
+
+# Task 5
+```{r Pedestrian Data Import}
+pedestrian <- read_delim("pedestrian.csv",",")
+```
+#### Plotting the Pedestrian Trajectories
+```{r Plooting Pedestrian Trajectories}
+
+pedestrian%>%
+  ggplot(aes(x= E, y= N))  +
+  geom_path(aes(colour=TrajID)) +
+  geom_point(aes(colour=TrajID)) + 
+  facet_wrap(~TrajID, nrow = 2) +
+  coord_equal(1) + 
+  theme_set(theme_minimal()) +
+  theme(legend.position = "none")     
+```
+
+# Task 6
+
+Available functions in the package "SimilarityMeasures"
+```{r Similarity Measures}
+help(package = "SimilarityMeasures")
+library(SimilarityMeasures)
+```
+
+Creating matrices of pedestrian coordinates & IDs
+```{r Pedestrain Matrix}
+pedestrian1 <- as.matrix(filter(pedestrian[,1:3], TrajID == 1))
+pedestrian2 <- as.matrix(filter(pedestrian[,1:3], TrajID == 2))
+pedestrian3 <- as.matrix(filter(pedestrian[,1:3], TrajID == 3))
+pedestrian4 <- as.matrix(filter(pedestrian[,1:3], TrajID == 4))
+pedestrian5 <- as.matrix(filter(pedestrian[,1:3], TrajID == 5))
+pedestrian6 <- as.matrix(filter(pedestrian[,1:3], TrajID == 6))
+```
+
+```{r Creating Distance Matrix}
+dtw2 <- DTW(pedestrian1,pedestrian2)
+dtw3 <- DTW(pedestrian1,pedestrian3)
+dtw4 <- DTW(pedestrian1,pedestrian4)
+dtw5 <- DTW(pedestrian1,pedestrian5)
+dtw6 <- DTW(pedestrian1,pedestrian6)
+
+dtw <- c(dtw2,dtw3,dtw4,dtw5,dtw6)
+
+ed2 <- EditDist(pedestrian1,pedestrian2)
+ed3 <- EditDist(pedestrian1,pedestrian3)
+ed4 <- EditDist(pedestrian1,pedestrian4)
+ed5 <- EditDist(pedestrian1,pedestrian5)
+ed6 <- EditDist(pedestrian1,pedestrian6)
+
+ed <- c(ed2,ed3,ed4,ed5,ed6)
+
+f2 <- Frechet(pedestrian1,pedestrian2)
+f3 <- Frechet(pedestrian1,pedestrian3)
+f4 <- Frechet(pedestrian1,pedestrian4)
+f5 <- Frechet(pedestrian1,pedestrian5)
+f6 <- Frechet(pedestrian1,pedestrian6)
+
+fre <- c(f2,f3,f4,f5,f6)
+
+l2 <- LCSS(pedestrian1,pedestrian2)
+l3 <- LCSS(pedestrian1,pedestrian3)
+l4 <- LCSS(pedestrian1,pedestrian4)
+l5 <- LCSS(pedestrian1,pedestrian5)
+l6 <- LCSS(pedestrian1,pedestrian6)
+
+lcss <- c(l3,l3,l4,l5,l6)
+```
+The Frechet distance for trajectory 1 vs 3 could not be found. (to similar?)
+
+LCSS takes super long. Therefore i save the environment in case I need it again.
+```{r Save the Environment}
+save.image(file='myEnvironment.RData')
+```
+
+
+```{r Tra Names}
+tra <- c(2,3,4,5,6)
+df_tra <- data.frame(tra, dtw, ed, fre, lcss)
+```
+
+```{r Plots}
+pdtw <- df_tra%>%
+  ggplot(aes(x=tra, y=dtw, fill = tra))  +
+  geom_bar(stat="identity", show.legend = FALSE) +
+  ggtitle('Distance Time Warping') +
+  theme_set(theme_minimal()) 
+
+ped <- df_tra%>%
+  ggplot(aes(x=tra, y=ed, fill = tra))  +
+  geom_bar(stat="identity", show.legend = FALSE) +
+  ggtitle('Edit Distance') +
+  theme_set(theme_minimal()) 
+
+pfre <- df_tra%>%
+  ggplot(aes(x=tra, y=fre, fill = tra))  +
+  geom_bar(stat="identity", show.legend = FALSE) +
+  ggtitle('Frechet Distance') +
+  theme_set(theme_minimal()) 
+
+plcss <- df_tra%>%
+  ggplot(aes(x=tra, y=lcss, fill = tra))  +
+  geom_bar(stat="identity", show.legend = FALSE) +
+  ggtitle('LCSS') +
+  theme_set(theme_minimal()) 
+```
+
+```{r Plots in a Grid}
+library(patchwork)
+
+grided <- wrap_plots(pdtw, ped, pfre, plcss)
+grided + plot_annotation(
+  title = 'Comparison of  Similarity Measures',
+  subtitle = 'Trajectory 1 compared to the Trajectories 2-6'
+)
+```
 
 
 
